@@ -1,0 +1,36 @@
+{
+  "name": "lkprinters_backend",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "Dheeraj",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "build": "echo No build required",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.8.0",
+    "mongoose": "^8.24.0",
+    "multer": "^2.2.0",
+    "nodemon": "^3.1.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dheerajcse21-dev/LK-Printers-Backend.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/dheerajcse21-dev/LK-Printers-Backend/issues"
+  },
+  "homepage": "https://github.com/dheerajcse21-dev/LK-Printers-Backend#readme"
+}
