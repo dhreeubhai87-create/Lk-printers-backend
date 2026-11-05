@@ -13,11 +13,7 @@ const categoryRoutes = require('./src/routes/categoryroutes');
 const productRoutes = require('./src/routes/productroutes');
 const connectDB = require('./src/config/db');
 const uploadRoutes = require('./src/routes/uploadroutes');
-
-
-// // 🔥 DNS fix for Windows SRV issue
-// const dns = require('dns');
-// dns.setDefaultResultOrder('ipv4first');
+const { signup } = require('./src/controllers/usercontroller');
 
 // Database connection
 connectDB();
@@ -35,39 +31,17 @@ mongoose.connection.on('disconnected', () => {
     console.log('🟡 MongoDB Disconnected');
 });
 
-// Middleware - Updated CORS to allow local IPs and localhost
-const defaultOrigins = [
-    'http://localhost:8082',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'http://172.25.48.1:8080',
-    'http://169.254.83.107:8080'
-];
-
-const envOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
-    : [];
-
-const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
-
+// Middleware - Robust CORS allowing all web/mobile clients (Render, Vercel, Localhost, Postman)
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like Postman or mobile apps)
-        // or requests matching allowed origins or local IP network ranges (172.x, 192.x, 10.x)
-        if (
-            !origin || 
-            allowedOrigins.includes(origin) || 
-            origin.startsWith('http://172.') || 
-            origin.startsWith('http://192.168.') || 
-            origin.startsWith('http://10.')
-        ) {
-            return callback(null, true);
-        }
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
+        // Allow all incoming origins dynamically
+        return callback(null, true);
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -77,12 +51,20 @@ app.use(
     express.static(path.join(__dirname, "uploads"))
 );
 
+// Explicit root-level POST signup route (guarantees POST /api/user/signup matches directly)
+app.post('/api/user/signup', signup);
+app.post('/api/user/register', signup);
+app.post('/api/auth/register', signup);
+app.post('/api/auth/signup', signup);
+
 // Routes
 app.use('/api/user', userRoutes);
+app.use('/api/auth', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/product', productRoutes);
 app.use('/api/upload', uploadRoutes);
+
 // Health Check
 app.get('/', (req, res) => {
     res.send('🚀 LK Printers Backend Running');
@@ -96,7 +78,8 @@ app.use((err, req, res, next) => {
     }
 
     return res.status(500).json({
-        message: 'Internal Server Error'
+        message: 'Internal Server Error',
+        error: err.message
     });
 });
 

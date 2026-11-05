@@ -1,16 +1,22 @@
 const mongoose = require('mongoose');
+
 const userSchema = new mongoose.Schema({
-    businessName: {
+    name: {
         type: String,
-        required: true,
         trim: true
     },
-    email:{
+    businessName: {
         type: String,
-         required: true,
-         unique: true,
-         trim: true,
-         lowercase: true
+        required: false,
+        default: "",
+        trim: true
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true
     },
     role: {
         type: String,
@@ -19,13 +25,14 @@ const userSchema = new mongoose.Schema({
     },
     username: {
         type: String,
-        required: true,
+        required: false,
         trim: true
     },
     phoneNumber: {
         type: String,
-        required: true,
-        unique: true
+        required: false,
+        sparse: true,
+        trim: true
     },
     password: {
         type: String,
@@ -33,45 +40,53 @@ const userSchema = new mongoose.Schema({
     },
     refCode: {
         type: String,
-
+        default: ""
     },
     Country: {
         type: String,
-        required: true,
+        required: false,
+        default: "India",
         trim: true
     },
     state: {
         type: String,
-        required: true,
+        required: false,
+        default: "",
         trim: true
     },
     district: {
         type: String,
-        required: true,
+        required: false,
+        default: "",
         trim: true
     },
     city: {
         type: String,
-        required: true,
+        required: false,
+        default: "",
         trim: true
     },
     pinCode: {
         type: String,
-        required: true,
+        required: false,
+        default: "",
         trim: true
     },
     gstTax: {
-        type: String
+        type: String,
+        default: ""
     },
     panNumber: {
-        type: String
+        type: String,
+        default: ""
     },
     fullAddress: {
         type: String,
-        required: true,
+        required: false,
+        default: "",
         trim: true
     }
-});
+}, { timestamps: true });
 
-const user = mongoose.model('users', userSchema);
+const user = mongoose.models.users || mongoose.model('users', userSchema);
 module.exports = user;

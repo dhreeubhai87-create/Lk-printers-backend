@@ -15,100 +15,149 @@ const sanitizeUser = (doc) => {
 
 const createToken = (doc) => jwt.sign(
     { id: doc._id, role: doc.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
+    process.env.JWT_SECRET || 'secret124',
+    { expiresIn: '7d' }
 );
 
 const signup = async (req, res) => {
     try {
-        const { businessName, username, email, phoneNumber, password, refCode, Country, state, district, city, pinCode, gstTax, panNumber, pan, fullAddress } = req.body;
-        if (!businessName || !email || !username || !phoneNumber || !password || !Country || !state || !district || !city || !pinCode || !fullAddress) {
-            return res.status(400).json({
-                message: 'All fields are required'
-            })
-        }
-        const normalizedEmail = String(email).trim().toLowerCase();
-        const normalizedPhone = String(phoneNumber).trim();
-
-        const existingUser = await user.findOne({ phoneNumber: normalizedPhone });
-        const checkEmail = await user.findOne({ email: normalizedEmail });
-        if (existingUser || checkEmail) {
-            return res.status(400).json({
-                message: 'User already exists with this phone number or email'
-            })
-        }
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newuser = new user({
-            businessName: businessName.trim(),
+        const {
+            name,
+            businessName,
             username,
-            email: normalizedEmail,
-            phoneNumber: normalizedPhone,
-            password: hashedPassword,
+            email,
+            phoneNumber,
+            password,
             refCode,
-            Country: Country.trim(),
-            state: state.trim(),
-            district: district.trim(),
-            city: city.trim(),
-            pinCode: String(pinCode).trim(),
+            Country,
+            country,
+            state,
+            district,
+            city,
+            pinCode,
             gstTax,
-            panNumber: panNumber || pan || "",
-            fullAddress: fullAddress.trim()
-        });
-        await newuser.save();
-        const token = createToken(newuser);
-        return res.status(201).json({
-            message: 'User registered successfully',
-            response: sanitizeUser(newuser),
-            token: token
-        })
-    }
-    catch (ex) {
-        console.log(ex);
-        return res.status(500).json({
-            message: 'Internal Server Error',
-        })
-    }
-}
+            gstNumber,
+            panNumber,
+            pan,
+            fullAddress,
+            role
+        } = req.body || {};
 
-
-const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
         if (!email || !password) {
             return res.status(400).json({
                 message: 'Email and password are required'
-            })
+            });
+        }
+
+        const resolvedName = (name || username || businessName || "User").trim();
+        const resolvedBusinessName = (businessName || resolvedName).trim();
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const normalizedPhone = phoneNumber ? String(phoneNumber).trim() : undefined;
+
+        // Check if user already exists with this email
+        const checkEmail = await user.findOne({ email: normalizedEmail });
+        if (checkEmail) {
+            return res.status(400).json({
+                message: 'User already exists with this email'
+            });
+        }
+
+        // If phone is provided, check uniqueness
+        if (normalizedPhone) {
+            const existingUser = await user.findOne({ phoneNumber: normalizedPhone });
+            if (existingUser) {
+                return res.status(400).json({
+                    message: 'User already exists with this phone number'
+                });
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newuserData = {
+            name: resolvedName,
+            username: resolvedName,
+            businessName: resolvedBusinessName,
+            email: normalizedEmail,
+            password: hashedPassword,
+            role: role || 'user',
+            refCode: refCode || "",
+            Country: (Country || country || "India").trim(),
+            state: state ? state.trim() : "",
+            district: district ? district.trim() : "",
+            city: city ? city.trim() : "",
+            pinCode: pinCode ? String(pinCode).trim() : "",
+            gstTax: gstTax || gstNumber || "",
+            panNumber: panNumber || pan || "",
+            fullAddress: fullAddress ? fullAddress.trim() : ""
+        };
+
+        if (normalizedPhone) {
+            newuserData.phoneNumber = normalizedPhone;
+        }
+
+        const newuser = new user(newuserData);
+        await newuser.save();
+        const token = createToken(newuser);
+        const sanitized = sanitizeUser(newuser);
+
+        return res.status(201).json({
+            message: 'User registered successfully',
+            response: sanitized,
+            user: sanitized,
+            token: token
+        });
+    }
+    catch (ex) {
+        console.error('Registration/Signup error:', ex);
+        return res.status(500).json({
+            message: 'Internal Server Error',
+            error: ex.message
+        });
+    }
+};
+
+const login = async (req, res) => {
+    try {
+        const { email, password } = req.body || {};
+        if (!email || !password) {
+            return res.status(400).json({
+                message: 'Email and password are required'
+            });
         }
         const existinguser = await user.findOne({ email: String(email).trim().toLowerCase() });
         if (!existinguser) {
             return res.status(400).json({
                 message: 'Invalid email or password'
-            })
+            });
         }
         const isMatch = await bcrypt.compare(password, existinguser.password);
         if (!isMatch) {
             return res.status(400).json({
                 message: 'Password is incorrect'
-            })
+            });
         }
         const token = createToken(existinguser);
+        const sanitized = sanitizeUser(existinguser);
         return res.status(200).json({
             message: 'Login successful',
-            response: sanitizeUser(existinguser),
+            response: sanitized,
+            user: sanitized,
             role: existinguser.role,
             token: token
         });
     }
     catch (ex) {
+        console.error('Login error:', ex);
         return res.status(500).json({
             message: 'Internal Server Error',
+            error: ex.message
         });
     }
-}
+};
 
 const adminLogin = async (req, res) => {
     try {
-        const { password } = req.body;
+        const { password } = req.body || {};
 
         if (!password) {
             return res.status(400).json({
@@ -129,6 +178,7 @@ const adminLogin = async (req, res) => {
         if (!adminUser) {
             const hashedPassword = await bcrypt.hash(masterPassword, 10);
             adminUser = new user({
+                name: 'LK Printers Admin',
                 businessName: 'LK Printers Admin',
                 username: 'admin',
                 email: 'admin@lkprinters.com',
@@ -146,16 +196,19 @@ const adminLogin = async (req, res) => {
         }
 
         const token = createToken(adminUser);
+        const sanitized = sanitizeUser(adminUser);
         return res.status(200).json({
             message: 'Login successful',
-            response: sanitizeUser(adminUser),
+            response: sanitized,
+            user: sanitized,
             role: adminUser.role,
             token
         });
     } catch (ex) {
         console.error('adminLogin error:', ex);
         return res.status(500).json({
-            message: 'Internal Server Error'
+            message: 'Internal Server Error',
+            error: ex.message
         });
     }
 };
@@ -170,7 +223,8 @@ const getProfile = async (req, res) => {
         }
         return res.status(200).json({
             message: 'Profile retrieved successfully',
-            response: currentUser
+            response: currentUser,
+            user: currentUser
         });
     } catch (ex) {
         console.error('getProfile error:', ex);
@@ -178,18 +232,19 @@ const getProfile = async (req, res) => {
             message: 'Internal Server Error'
         });
     }
-}
+};
 
 const updateProfile = async (req, res) => {
     try {
-        const { businessName, username, email, phoneNumber, Country, state, district, city, pinCode, gstTax, fullAddress } = req.body;
+        const { businessName, username, name, email, phoneNumber, Country, state, district, city, pinCode, gstTax, fullAddress } = req.body || {};
 
         const updatedUser = await user.findByIdAndUpdate(
             req.userId,
             {
                 $set: {
                     businessName,
-                    username,
+                    username: username || name,
+                    name: name || username,
                     email,
                     phoneNumber,
                     Country,
@@ -212,7 +267,8 @@ const updateProfile = async (req, res) => {
 
         return res.status(200).json({
             message: 'Profile updated successfully',
-            response: updatedUser
+            response: updatedUser,
+            user: updatedUser
         });
     } catch (ex) {
         console.error('updateProfile error:', ex);
@@ -220,7 +276,7 @@ const updateProfile = async (req, res) => {
             message: 'Internal Server Error'
         });
     }
-}
+};
 
 const getAllUsers = async (req, res) => {
     try {
@@ -245,7 +301,7 @@ const getAllUsers = async (req, res) => {
 
 const changePassword = async (req, res) => {
     try {
-        const { oldPassword, newPassword } = req.body;
+        const { oldPassword, newPassword } = req.body || {};
 
         if (!oldPassword || !newPassword) {
             return res.status(400).json({
@@ -273,9 +329,7 @@ const changePassword = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-
         currentUser.password = hashedPassword;
-
         await currentUser.save();
 
         return res.status(200).json({
@@ -297,5 +351,6 @@ module.exports = {
     adminLogin,
     getProfile,
     updateProfile,
-    getAllUsers,changePassword
+    getAllUsers,
+    changePassword
 };
